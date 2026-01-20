@@ -133,8 +133,6 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         log_std = self.logstd
         std = torch.exp(log_std)
         std = std.expand(mean.shape[0],-1)
-        # print('mean:', mean.shape)
-        # print('std:', std.shape)
         output = distributions.Normal(mean, std)
         output = distributions.Independent(output, 1)
         
