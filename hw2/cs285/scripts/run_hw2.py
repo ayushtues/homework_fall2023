@@ -1,3 +1,4 @@
+
 import os
 import time
 
@@ -101,9 +102,12 @@ def run_training_loop(args):
             for key, value in logs.items():
                 print("{} : {}".format(key, value))
                 logger.log_scalar(value, key, itr)
+            
             print("Done logging...\n\n")
 
             logger.flush()
+            
+            
 
         if args.video_log_freq != -1 and itr % args.video_log_freq == 0:
             print("\nCollecting video rollouts...")
@@ -118,6 +122,7 @@ def run_training_loop(args):
                 max_videos_to_save=MAX_NVIDEO,
                 video_title="eval_rollouts",
             )
+    logger.dump_scalars()
 
 
 def main():

@@ -153,7 +153,6 @@ class PGAgent(nn.Module):
             mu = np.mean(advantages, keepdims=True)
             std = np.std(advantages, keepdims=True)
             advantages = (advantages - mu)/std
-            pass
 
         return advantages
 
