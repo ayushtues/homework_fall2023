@@ -77,7 +77,8 @@ class MLPPolicy(nn.Module):
             mean = self.mean_net(obs)
             log_std = self.logstd
             std = torch.exp(log_std)
-            std = std.expand(mean.shape[0],-1)
+            if len(std.shape) != len(mean.shape):
+                std = std.expand(mean.shape[0],-1)
             output = distributions.Normal(mean, std)
             output = distributions.Independent(output, 1)
             return output
