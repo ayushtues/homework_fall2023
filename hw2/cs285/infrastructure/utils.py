@@ -6,7 +6,7 @@ import gym
 import cv2
 from cs285.infrastructure import pytorch_util as ptu
 from typing import Dict, Tuple, List
-
+import torch
 ############################################
 ############################################
 
@@ -31,15 +31,25 @@ def sample_trajectory(
 
         # TODO use the most recent ob and the policy to decide what to do
         ac: np.ndarray = None
+        try:
+            ob = ptu.from_numpy(ob)
+        except:
+            pass
+        ac = policy.get_action(ob)
+        ac = ptu.to_numpy(ac)
 
         # TODO: use that action to take a step in the environment
-        next_ob, rew, done, _ = None, None, None, None
+        next_ob, rew, done, _ = env.step(action=ac)
 
         # TODO rollout can end due to done, or due to max_length
         steps += 1
-        rollout_done: bool = None
+        rollout_done: bool = done or (steps == max_length)
 
         # record result of taking that action
+        if isinstance(ob, torch.Tensor):
+            ob = ptu.to_numpy(ob) 
+        if isinstance(next_ob, torch.Tensor):
+            next_ob = ptu.to_numpy(next_ob) 
         obs.append(ob)
         acs.append(ac)
         rewards.append(rew)
@@ -72,13 +82,17 @@ def sample_trajectories(
     """Collect rollouts using policy until we have collected min_timesteps_per_batch steps."""
     timesteps_this_batch = 0
     trajs = []
+    from tqdm import tqdm
+    pbar = tqdm(total=min_timesteps_per_batch)
     while timesteps_this_batch < min_timesteps_per_batch:
         # collect rollout
         traj = sample_trajectory(env, policy, max_length, render)
         trajs.append(traj)
 
         # count steps
-        timesteps_this_batch += get_traj_length(traj)
+        traj_len = get_traj_length(traj)
+        timesteps_this_batch += traj_len
+        pbar.update(traj_len)
     return trajs, timesteps_this_batch
 
 
