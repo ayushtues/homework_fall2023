@@ -44,6 +44,10 @@ def collect_mbpo_rollout(
         # HINT: get actions from `sac_agent` and `next_ob` predictions from `mb_agent`.
         # Average the ensemble predictions directly to get the next observation.
         # Get the reward using `env.get_reward`.
+        ac = sac_agent.get_action(ob)
+        next_ob = [mb_agent.get_dynamics_predictions(i, ob, ac) for i in range(mb_agent.ensemble_size)]
+        next_ob = np.mean(next_ob, axis=0)
+        rew = env.get_reward(next_ob[None], ac[None])[0][0]
 
         obs.append(ob)
         acs.append(ac)
@@ -119,10 +123,10 @@ def run_training_loop(
         if itr == 0:
             # TODO(student): collect at least config["initial_batch_size"] transitions with a random policy
             # HINT: Use `utils.RandomPolicy` and `utils.sample_trajectories`
-            trajs, envsteps_this_batch = ...
+            trajs, envsteps_this_batch = utils.sample_trajectories(env, utils.RandomPolicy(env), config['initial_batch_size'], ep_len)
         else:
             # TODO(student): collect at least config["batch_size"] transitions with our `actor_agent`
-            trajs, envsteps_this_batch = ...
+            trajs, envsteps_this_batch =  utils.sample_trajectories(env, actor_agent, config['batch_size'], ep_len)
 
         total_envsteps += envsteps_this_batch
         logger.log_scalar(total_envsteps, "total_envsteps", itr)
@@ -165,6 +169,10 @@ def run_training_loop(
             # TODO(student): train the dynamics models
             # HINT: train each dynamics model in the ensemble with a *different* batch of transitions!
             # Use `replay_buffer.sample` with config["train_batch_size"].
+            for i in range(len(mb_agent.dynamics_models)):
+                sampled_trajs = replay_buffer.sample(config['train_batch_size'])
+                step_losses.append(mb_agent.update(i, obs=sampled_trajs['observations'], acs=sampled_trajs['actions'], next_obs=sampled_trajs['next_observations']))
+                
             all_losses.append(np.mean(step_losses))
 
         # on iteration 0, plot the full learning curve
