@@ -47,8 +47,14 @@ class DQNAgent(nn.Module):
         observation = ptu.from_numpy(np.asarray(observation))[None]
 
         # TODO(student): get the action from the critic using an epsilon-greedy strategy
-        raise NotImplementedError
-        action = ...
+        action = self.critic(observation)
+        batch_size, act_dim = action.shape
+        greedy_action = torch.argmax(action, dim=-1)
+        eps_greedy_mask = torch.rand(batch_size, device=ptu.device) > epsilon
+        
+        random_action = torch.randint(0, act_dim, (batch_size,), device=ptu.device)
+        action = torch.where(eps_greedy_mask, greedy_action, random_action)
+   
 
         return ptu.to_numpy(action).squeeze(0).item()
 
@@ -70,20 +76,31 @@ class DQNAgent(nn.Module):
         """
 
         # TODO(student): paste in your code from HW3, and make sure the return values exist
-        raise NotImplementedError
+        (batch_size,) = reward.shape
+        
+        done_mask = done.float()
+
+        # Compute target values
         with torch.no_grad():
-            next_qa_values = ...
+            # TODO(student): compute target values
+            next_qa_values = self.target_critic(next_obs)
 
             if self.use_double_q:
-                next_action = ...
+                next_qa_values2 = self.critic(next_obs)
+                next_action = torch.argmax(next_qa_values2, dim=-1, keepdim=True)
             else:
-                next_action = ...
+                next_action = torch.argmax(next_qa_values, dim=-1, keepdim=True)
+            
+            next_q_values = torch.gather(next_qa_values, dim=-1, index=next_action).squeeze(-1)
+            target_values = reward + self.discount * (1-done_mask) * next_q_values
 
-            next_q_values = ...
-            assert next_q_values.shape == (batch_size,), next_q_values.shape
+        # TODO(student): train the critic with the target values
+        qa_values = self.critic(obs)
+        q_values = torch.gather(qa_values, dim=-1, index=action.unsqueeze(-1)).squeeze(-1) # Compute from the data actions; see torch.gather
+        loss = torch.nn.functional.mse_loss(q_values, target_values)
 
-            target_values = ...
-            assert target_values.shape == (batch_size,), target_values.shape
+        assert next_q_values.shape == (batch_size,), next_q_values.shape
+        assert target_values.shape == (batch_size,), target_values.shape
 
         return (
             loss,
@@ -138,4 +155,7 @@ class DQNAgent(nn.Module):
         """
         # TODO(student): paste in your code from HW3
 
+        critic_stats = self.update_critic(obs, action, reward, next_obs, done)
+        if step%self.target_update_period == 0 :
+            self.update_target_critic()
         return critic_stats
